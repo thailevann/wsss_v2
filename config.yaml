@@ -1,0 +1,246 @@
+# Configuration file for BCSS-WSSS training
+
+device: "cuda"  # or "cpu"
+seed: 42
+
+# ==================== DATA PATHS ====================
+data_root: "/home/s12gbn4/aivn2026-research/thaivan/BCSS-WSSS"
+cssl_img_dir: "${data_root}/training"
+cls_img_dir: "${data_root}/training"
+cls_label_csv: "${data_root}/train.csv"
+
+val_img_dir: "${data_root}/test/img"
+val_mask_dir: "${data_root}/test/mask"
+
+test_img_dir: "${data_root}/test/img"
+test_mask_dir: "${data_root}/test/mask"
+
+# ==================== CONCH MODEL ====================
+conch_arch: "conch_ViT-B-16"
+conch_hf: "hf_hub:MahmoodLab/conch"
+hf_token: "..."
+
+
+conch_block_idxs: [2, 5, 8, 11]  # taps -> P1..P4
+conch_vision_dim: 768
+conch_text_dim: 512
+
+# Vision fine-tuning mode: "freeze" | "last_k" | "full"
+conch_vision_train_mode: "last_k"
+conch_vision_last_k: 2
+
+# ==================== SIZES ====================
+target_size: 448
+output_size: 28
+
+# ==================== TRAIN SCHEDULE ====================
+epochs: 15
+
+# ==================== BATCH + OPTIMIZER ====================
+batch_cls: 8
+num_workers: 4
+accum_steps: 1
+
+lr_vision: 1.0e-6
+lr_head: 5.0e-5
+lr_lora: 2.0e-4
+
+# ==================== MULTI-SCALE WEIGHTS ====================
+lambda_cls: 1.0
+ms_weights:
+  L2: 0.5
+  L3: 0.75
+  L4: 1.0
+
+# ==================== SAVING ====================
+save_path: "joint_conch448_levelB.pt"
+save_best_by: "pseudo_miou_fg"
+plot_dir: "eval_artifacts_joint_conch448_levelB"
+
+# ==================== THRESHOLD TUNING ====================
+val_split: 0.2
+tune_thresholds: true
+thresh_grid_points: 101
+thresh_default: 0.5
+
+# ==================== LoRA ====================
+enable_text_lora: true
+lora_r: 8
+lora_alpha: 16
+lora_dropout: 0.05
+lora_text_target_mode: "attn_mlp"
+
+# ==================== PROMPTING ====================
+prompt_ensemble: true
+coarse_templates:
+  - "a histopathology image of {} tissue."
+  - "a pathology slide showing {} tissue."
+  - "an H&E stained tissue region of {}."
+  - "microscopy image of {} tissue."
+  - "a photo of {} tissue."
+
+fine_template: "a photo of {y} tissue, with {s} structures, and cells typically appearing {p}."
+
+banned_structure_terms:
+  - "nuclei"
+  - "nucleus"
+  - "nuclear"
+  - "hyperchromatic nuclei"
+  - "nuclear pleomorphism"
+
+structure_bank:
+  tumor epithelium:
+    - "glandular"
+    - "solid nests"
+    - "cribriform"
+    - "papillary"
+    - "irregular glands"
+    - "invasive cords"
+    - "sheet-like growth"
+    - "tumor clusters"
+  tumor-associated stroma:
+    - "fibrous"
+    - "desmoplastic"
+    - "collagen bundles"
+    - "spindle cells"
+    - "stromal strands"
+    - "reactive stroma"
+    - "myxoid areas"
+  lymphocyte infiltrate:
+    - "dense infiltrates"
+    - "peritumoral infiltrates"
+    - "scattered small cells"
+    - "aggregates"
+    - "lymphoid clusters"
+  necrosis:
+    - "eosinophilic debris"
+    - "ghost-like outlines"
+    - "acellular areas"
+    - "necrotic pools"
+    - "karyorrhectic debris"
+
+color_bank:
+  tumor epithelium:
+    - "eosinophilic pink cytoplasm"
+    - "moderate pink"
+    - "mixed pink-purple"
+    - "basophilic purple-tinged"
+    - "pale eosinophilic"
+  tumor-associated stroma:
+    - "pale pink collagen"
+    - "light eosinophilic"
+    - "faint pink"
+    - "pale bluish"
+    - "mixed pale tones"
+  lymphocyte infiltrate:
+    - "basophilic purple"
+    - "dark purple-tinged"
+    - "blue-purple"
+    - "dark basophilic"
+  necrosis:
+    - "bright eosinophilic pink"
+    - "pale eosinophilic"
+    - "washed-out pink"
+    - "granular eosinophilic"
+
+fine_max_struct_per_prompt: 2
+fine_max_color_per_prompt: 1
+fine_max_fine_per_class: 80
+
+prompt_purify: true
+purify_redundancy_thr: 0.92
+purify_ambiguity_margin: 0.05
+purify_min_keep_per_class: 25
+
+# ==================== FINE PROMPT SELECTION ====================
+fine_topk_per_class: 6
+fine_temp: 10.0
+fine_sim_margin: 0.02
+
+# ==================== CONFIDENCE GATING ====================
+fine_beta_init: 0.60
+fine_beta_learnable: true
+fine_cache_enable: true
+fine_cache_refresh: "epoch"  # "epoch" or "never"
+fine_cache_chunk: 64
+fine_cache_dtype: "fp16"  # "fp16" | "bf16" | "fp32"
+
+gate_mode: "conf_prob"  # "conf" | "prob" | "conf_prob"
+gate_conf_pow: 1.0
+gate_prob_tau: 0.20
+gate_prob_sharpness: 8.0
+
+attr_loss_weight: 0.05
+
+# ==================== KNOWLEDGE (BERT) ====================
+bert_id: "emilyalsentzer/Bio_ClinicalBERT"
+freeze_bert: true
+use_web_knowledge: false
+web_knowledge_timeout: 5.0
+knowledge_alpha_in_label: 0.7
+knowledge_tokens_per_class: 1
+bert_max_len: 256
+
+# ==================== IMAGE PROTOTYPES ====================
+# Set to empty string "" to auto-generate prototype from training images
+# Or specify full path to existing prototype file (.pkl or .pt)
+prototype_path: "/home/s12gbn4/aivn2026-research/thaivan/dong/prototypes/bcss_prototypes.pkl"  # Auto-generate if empty and use_image_protos=true
+proto_use_all_bank: true  # Use all cluster centers (true) or per-class mean (false)
+use_image_protos: true  # Set to true to enable image prototypes
+# If use_image_protos=true and prototype_path is empty, will auto-generate
+# using k_list below (default: [3,3,3,3] for [Tumor, Stroma, Lymph, Necrosis])
+proto_k_list: [3, 3, 3, 3]  # Number of clusters per class for auto-generation
+
+# ==================== AFFINITY ====================
+aff_dim: 64
+
+# ==================== CLASS NAMES ====================
+class_names: ["Tumor", "Stroma", "Lymph", "Necrosis"]
+text_class_names: ["tumor epithelium", "tumor-associated stroma", "lymphocyte infiltrate", "necrosis"]
+
+knowledge_texts:
+  tumor epithelium: "Tumor epithelium consists of malignant epithelial cells with atypia, pleomorphism, and abnormal architecture."
+  tumor-associated stroma: "Tumor-associated stroma includes fibroblasts, extracellular matrix, and reactive stromal changes surrounding tumor cells."
+  lymphocyte infiltrate: "Lymphocyte infiltrate refers to immune cells (primarily lymphocytes) infiltrating tissue, often as small dark nuclei in H&E."
+  necrosis: "Necrosis is tissue death characterized by eosinophilic debris, loss of nuclei, and ghost-like cellular outlines."
+
+# ==================== EVAL CONFIG ====================
+eval:
+  thr_vec: [0.40, 0.40, 0.35, 0.40]
+  peak_vec: [0.85, 0.90, 0.80, 0.85]
+  hard_min: [0.05, 0.05, 0.03, 0.03]
+  
+  robust_p: 99.0
+  
+  pixel_tau: 0.18
+  auto_tau: true
+  tau_candidates: [0.12, 0.14, 0.16, 0.18, 0.20, 0.22, 0.24, 0.26]
+  
+  seed_delta: 0.22
+  
+  class_scale: [1.00, 0.95, 1.15, 1.10]
+  
+  use_tissue_mask: true
+  tissue_s_min: 15
+  tissue_v_max: 240
+  tissue_morph: 3
+  
+  use_tta: true
+  tta_scales: [0.75, 1.00, 1.25]
+  tta_hflip: true
+  
+  batch_size: 16
+  num_workers: 2
+  
+  use_attr_present: true
+  attr_thr_vec: [0.55, 0.55, 0.55, 0.55]
+  
+  pseudo_mode: "affinity"  # "simple" or "affinity"
+  aff_k: 7
+  aff_iters: 2
+  aff_gamma: 2.0
+  aff_eps: 1.0e-6
+  
+  vis_samples: 2
+  vis_figsize: [18, 9]
+

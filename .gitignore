@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data / artifacts
+data/
+prototypes/
+*.pkl
+
+# Training logs
+logs/
+wandb/
+
+# Env
+.env
